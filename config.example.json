@@ -6,6 +6,6 @@
     "container": { "kind": "project", "id": "<project id>" },
     "bodyNode": "<prose node id>",
     "chartNode": "<widget node id>",
-    "customerLabel": "the main team and the service desk"
+    "customerLabel": "the ENG team"
   }
 }

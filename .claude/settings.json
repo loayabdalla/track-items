@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(~/.claude/skills/track-items/scripts/github-items.sh)",
+      "Bash(~/.claude/skills/track-items/scripts/github-done.sh *)",
+      "Bash(~/.claude/skills/track-items/scripts/github-months.sh *)",
+      "mcp__claude_ai_Claude_Docs__read",
+      "mcp__claude_ai_Claude_Docs__update",
+      "mcp__claude_ai_Claude_Docs__guide",
+      "mcp__claude_ai_Slack__slack_search_public_and_private",
+      "mcp__claude_ai_Slack__slack_search_public",
+      "mcp__claude_ai_Slack__slack_read_thread",
+      "mcp__claude_ai_Slack__slack_read_channel",
+      "mcp__claude_ai_Slack__slack_read_user_profile",
+      "mcp__claude_ai_Slack__slack_search_users",
+      "mcp__claude_ai_Slack__slack_list_user_channels",
+      "mcp__claude_ai_Slack__slack_get_reactions",
+      "mcp__claude_ai_Linear__list_issues",
+      "mcp__claude_ai_Linear__get_notifications",
+      "mcp__claude_ai_Linear__list_comments",
+      "mcp__claude_ai_Linear__get_user",
+      "mcp__claude_ai_Linear__get_issue"
+    ],
+    "deny": [
+      "mcp__claude_ai_Slack__slack_send_message",
+      "mcp__claude_ai_Slack__slack_send_message_draft",
+      "mcp__claude_ai_Slack__slack_schedule_message",
+      "mcp__claude_ai_Slack__slack_add_reaction",
+      "mcp__claude_ai_Slack__slack_create_canvas",
+      "mcp__claude_ai_Slack__slack_update_canvas"
+    ]
+  }
+}

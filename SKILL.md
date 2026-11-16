@@ -1,7 +1,7 @@
 ---
 name: track-items
 description: Keep the user's Active Items board up to date. The board lists PRs to review, Slack threads to answer, Linear issues, follow-ups, and the user's own PRs. Use when the user says "track this", "add this to my list", "remind me to ...", "sync my items", "what's on my plate", "what did I do yesterday", "daily brief", "mark X done", "untrack X", "log this win", "add this to my progress log", or "update my progress log". Also use it on your own, without being asked, when a chat leaves the user with a clear pending action that a sync cannot find, such as a promise to follow up with someone, a postponed decision or TODO, a question the user must answer, or work that waits on another person. Do not use it for steps you will finish in the current chat.
-argument-hint: "[tick | sync | brief | progress | win <what> | track <what> | done <what> | list]"
+argument-hint: "[setup | tick | sync | brief | progress | win <what> | track <what> | done <what> | list]"
 ---
 
 # Track items
@@ -16,7 +16,7 @@ The private values are in `~/.claude/skills/track-items/config.local.json`. Git 
 - `linearMainTeam`: the identifier prefix of the user's main Linear team, for example `ENG`.
 - `progressDoc`: the progress log doc. See Mode 6.
 
-If the file is missing, stop. Tell the user to copy `config.example.json` to `config.local.json` and fill it in.
+If the file is missing, run Mode 0 (setup) first.
 
 ## The board
 
@@ -73,6 +73,26 @@ Document ids:
 - Pin each write to an existing document with `if_version`. Use the `version` from your read. If a pinned write fails, read that document again and do the write again.
 - The user owns `status`, `snoozedUntil`, `doneAt`, and `closedBy`. A sync changes them only as "Close and reopen" tells you.
 - Do not write a field that did not change.
+
+## Mode 0: setup
+
+Use this mode for `/track-items setup`, and when `config.local.json` is missing. It makes the board, the progress log doc, and the config. Run it one time for each person. If `config.local.json` exists, tell the user that setup is already done, and stop.
+
+1. **Ask.** Ask the user two questions:
+   - The identifier prefix of their main Linear team, for example `ENG`. To help, call `list_issues` with `assignee: "me"` and `limit: 50`, and show the most common prefixes.
+   - The first month for the progress log (`YYYY-MM`). The default is 11 months before the current month.
+2. **Board.** Publish `~/.claude/skills/track-items/page/active-items.html` with the `Artifact` tool. Pass `capabilities: {"db": {}, "user": {}}` and `icon: "list"`. Do not pass `url`. The result gives the board URL.
+3. **Settings.** `set` the doc `meta/settings` on the board: `{"workdays": [0, 1, 2, 3, 4], "briefHour": 10, "note": "workdays are day numbers, 0 = Sunday. The brief is built only on these days, after briefHour local time."}`
+4. **Progress log doc.** Read `page/progress-log.md`. Replace `__FIRST_MONTH__` with the name of the first month ("May"). Replace `__FIRST_MONTH_YEAR__` with its name and year ("May 2026"). Then create the doc with one `mcp__claude_ai_Claude_Docs__batch` call:
+   - `container`: `{"kind": "project", "create": {"name": "Progress Log", "doc": {"markdown": "<the template>", "blocks": <blocks>}}}`, and `batch: []`.
+   - `blocks`: `"asof": {"type": "date", "value": "<today>"}`, `"me": {"type": "mention", "user": "me"}`, and `"chart": {"type": "pending", "intent": "At a glance: the monthly chart of PRs merged, PRs reviewed, and issues done"}`.
+   - The ack gives the doc link, the doc id, and `lids.n` (the tab body). `C` = `{"kind": "project", "id": "<doc id>"}`.
+   - If the docs tools are not available, skip steps 4 and 5, and leave `progressDoc` out of the config. Mode 6 then does nothing.
+5. **Chart.** Call `guide(["topic.charts"])` one time. Build `rows` as Mode 6 step 5 tells you. Fill `page/progress-chart.jsx` (`__ROWS__`, `__TITLE__` in 2 places, and `__SUBTITLE__`). Create the widget and its embed in one `batch`, as the guide shows. The embed replaces the `chart` pending block. Use the caption `GitHub search and Linear · <first month> – <today>`. The ack gives the widget node id.
+6. **Progress state.** `set` the doc `meta/progress` on the board: `docUrl`, `firstMonth`, `lastMonth` (the previous month, `YYYY-MM`), `glanceText` (the sentence under the chart, exactly as in the doc: `You closed 0 issues since <first month name>.`), `lastWeekStart: null`, and `updatedAt`.
+7. **Config.** Write `~/.claude/skills/track-items/config.local.json`. Use the fields of `config.example.json`: `boardUrl`, `linearMainTeam`, and `progressDoc` (`url`, `container`, `bodyNode`, `chartNode`). Set `progressDoc.customerLabel` to `the <linearMainTeam> team`.
+8. **First sync.** Run Mode 2. It fills the board and adds the first weekly entry to the progress log.
+9. **Report.** Give the board link and the doc link. Tell the user to start the background loop (see "Run it in the background").
 
 ## Mode 1: track from a chat
 
@@ -136,7 +156,7 @@ Read or unread status does not matter. Do not judge if the message asks for some
 
 **Not connected.** If `ToolSearch` finds no tools for a source, record `{ "at": <now>, "ok": false, "skipped": true, "error": "not connected" }` for that source and skip it. The board shows this as "not connected", not as a failure.
 
-**Slack.** Use the claude.ai Slack connector. Load its tools with `ToolSearch`: `select:mcp__claude_ai_Slack__slack_search_public_and_private,mcp__claude_ai_Slack__slack_read_thread,mcp__claude_ai_Slack__slack_read_user_profile`. The user's settings deny the Slack tools that write, so you see only the read tools.
+**Slack.** Use the claude.ai Slack connector. Load its tools with `ToolSearch`: `select:mcp__claude_ai_Slack__slack_search_public_and_private,mcp__claude_ai_Slack__slack_read_thread,mcp__claude_ai_Slack__slack_read_user_profile`. The settings deny the Slack tools that write, so you see only the read tools. The deny rules are in `.claude/settings.json` in this folder.
 
 1. Call `slack_read_user_profile` with no `user_id` and `response_format: "concise"`. It returns the user's own id (for example `U0123ABCDEF`).
 2. Call `slack_search_public_and_private` 4 times or less, each with `sort: "timestamp"`, `limit: 30`, and `include_context: false`. `<date>` is 7 days ago (`YYYY-MM-DD`):
@@ -203,7 +223,7 @@ For each fetched item:
 
 - Delete `done` items with a `doneAt` older than 30 days, and `digests` docs older than 30 days.
 - If today is a workday, the local time is `briefHour` or later, and `digests/<today>` does not exist, run Mode 4 (daily brief). On a day that is not a workday, do not build a brief.
-- After the brief, if `meta/progress.lastWeekStart` is earlier than the start of the previous work week, run Mode 6 (progress log).
+- After the brief, if the config has `progressDoc`, and `meta/progress.lastWeekStart` is missing or earlier than the start of the previous work week, run Mode 6 (progress log).
 - Set `runAt` in `meta/sync` to now.
 - Write `meta/sync` with one field per source: `{ "at": <now>, "ok": true, "count": <items fetched> }`, or `{ "at": <now>, "ok": false, "error": "<short reason>" }`. Keep the `chat` field as it is.
 
@@ -259,7 +279,7 @@ The progress log is a private Claude Doc. The user keeps it for performance revi
 - `C` = `progressDoc.container` in the config, for example `{"kind":"project","id":"<project id>"}`.
 - Tab body (prose node): `progressDoc.bodyNode`. Chart (widget node): `progressDoc.chartNode`.
 - Chart template: `~/.claude/skills/track-items/page/progress-chart.jsx`
-- Tools: `mcp__claude_ai_Claude_Docs__read` and `mcp__claude_ai_Claude_Docs__update`. Load `read` with `ToolSearch` first. If the docs tools are not available, record nothing and stop. Do not change `meta/progress`.
+- Tools: `mcp__claude_ai_Claude_Docs__read` and `mcp__claude_ai_Claude_Docs__update`. Load `read` with `ToolSearch` first. If the docs tools are not available, or the config has no `progressDoc`, record nothing and stop. Do not change `meta/progress`.
 
 **Private.** Only the user sees this doc. Never change its sharing. Never add a person, a mention, or a comment for another person. Never put the doc link or its content in Slack, Linear, GitHub, or a PR.
 
@@ -284,7 +304,7 @@ The progress log is a private Claude Doc. The user keeps it for performance revi
 4. **Highlights.** If the week has one clear win (shipped work with customer, security, or reliability impact), add one row at the top of the Highlights table: `When | Win | Proof`. Read `guide(["topic.editing"])` one time before the row insert. Add one win per week or less.
 5. **Chart.** Update it every week:
    - Run `~/.claude/skills/track-items/scripts/github-months.sh <first month>`. The first month is `meta/progress.firstMonth` (`YYYY-MM`), or 11 months before the current month if that is later (a 12-month window).
-   - Linear: `list_issues` with `assignee: "me"`, `completedAt: "<first month>-01T00:00:00Z"`, and `limit: 250`. Count the issues per month of `completedAt`. Also count the main team issues (`<linearMainTeam>-`). Add `meta/progress.jiraIssues` to its months. These are fixed monthly counts of Jira service desk issues, from before the team moved to Linear. Do not call Jira.
+   - Linear: `list_issues` with `assignee: "me"`, `completedAt: "<first month>-01T00:00:00Z"`, and `limit: 250`. Count the issues per month of `completedAt`. Also count the main team issues (`<linearMainTeam>-`). `meta/progress.jiraIssues` is optional (`{"YYYY-MM": N}`). It holds fixed monthly counts of Jira service desk issues, from before the team moved to Linear. If it exists, add its counts to their months. Do not call Jira.
    - Build `rows`: for each month, 3 rows in this order of metrics: `{month:'Jul', metric:'PRs merged', slug:'merged', value:N, partial:false}`, then `metric:'PRs reviewed', slug:'reviewed'`, then `metric:'Issues done', slug:'issues'`. Group the rows by metric: all `merged` rows, then all `reviewed` rows, then all `issues` rows. Only the current month has `partial:true`. Use single quotes.
    - `read` the widget (`ref` the widget node, `engine: "widget"`, container `C`). Keep `value.pub`. Copy the current title and subtitle words from `value.code`. Change them only if their numbers are no longer true. The title states the finding with its number.
    - In the template, replace `__ROWS__`, `__TITLE__` (2 places), and `__SUBTITLE__`. Send it with `update` (`engine: "widget"`, `payload: {"kind":"draft","basePub":<pub>,"code":"<module>"}`). The ack usually says `outcome: "published"`. If it says `staged`, send `payload: {"kind":"publish"}`. If it says `staged-with-errors`, fix the named line and send the draft again.
