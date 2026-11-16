@@ -1,0 +1,11 @@
+{
+  "boardUrl": "https://claude.ai/artifact/<board id>",
+  "linearMainTeam": "ENG",
+  "progressDoc": {
+    "url": "https://claude.ai/artifact/<doc id>",
+    "container": { "kind": "project", "id": "<project id>" },
+    "bodyNode": "<prose node id>",
+    "chartNode": "<widget node id>",
+    "customerLabel": "the main team and the service desk"
+  }
+}
