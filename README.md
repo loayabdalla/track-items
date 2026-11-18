@@ -48,7 +48,7 @@ The skill also writes a daily brief on the board and a weekly progress log in a 
 ## Files
 
 - `SKILL.md`: the skill instructions.
-- `page/active-items.html`: the board page.
+- `page/active-items.html`: the board page. It has seven looks: Studio, Glass, Dusk, Dusk Flight, Topo, Riso, and Classic. Use the Look menu at the bottom right of the board to change it. Your browser remembers the choice.
 - `page/progress-log.md`: the template for the progress log doc.
 - `page/progress-chart.jsx`: the chart template for the progress log.
 - `scripts/`: the GitHub scripts.
